@@ -63,10 +63,11 @@ public class SqlInjectionChallenge extends AssignmentEndpoint {
     if (attackResult == null) {
 
       try (Connection connection = dataSource.getConnection()) {
-        String checkUserQuery =
-            "select userid from sql_challenge_users where userid = '" + username_reg + "'";
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(checkUserQuery);
+          String checkUserQuery = "SELECT userid FROM sql_challenge_users WHERE userid = ?";
+          PreparedStatement preparedStatement = connection.prepareStatement(checkUserQuery);
+          preparedStatement.setString(1, username_reg);
+          ResultSet resultSet = preparedStatement.executeQuery();
+
 
         if (resultSet.next()) {
           if (username_reg.contains("tom'")) {
@@ -75,13 +76,15 @@ public class SqlInjectionChallenge extends AssignmentEndpoint {
             attackResult = failed(this).feedback("user.exists").feedbackArgs(username_reg).build();
           }
         } else {
-          PreparedStatement preparedStatement =
-              connection.prepareStatement("INSERT INTO sql_challenge_users VALUES (?, ?, ?)");
-          preparedStatement.setString(1, username_reg);
-          preparedStatement.setString(2, email_reg);
-          preparedStatement.setString(3, password_reg);
-          preparedStatement.execute();
-          attackResult = success(this).feedback("user.created").feedbackArgs(username_reg).build();
+            try(PreparedStatement insertStatement =
+              connection.prepareStatement("INSERT INTO sql_challenge_users VALUES (?, ?, ?)")){
+                
+              insertStatement.setString(1, username_reg);
+              insertStatement.setString(2, email_reg);
+              insertStatement.setString(3, password_reg);
+              insertStatement.execute();
+              attackResult = success(this).feedback("user.created").feedbackArgs(username_reg).build();
+            }
         }
       } catch (SQLException e) {
         attackResult = failed(this).output("Something went wrong").build();
